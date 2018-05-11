@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"io/ioutil"
 	"encoding/json"
-	"flag"
 	"log"
 )
 
@@ -21,7 +20,21 @@ type message struct {
 	DateTime string
 	BatteryState string
 	MessageContent string
-	Altitude float64 
+	Altitude float64
+}
+
+type  store struct {
+	Host string
+	Port int
+	user string
+	DB string
+	Prefix string
+	Password string
+}
+
+type feed struct {
+	Password string
+	ID string
 }
 
 type feedBasicResponse struct {
@@ -30,39 +43,62 @@ type feedBasicResponse struct {
 	ActivityCount int
 }
 
-func main(){
+var readConfig = func(file string) (feeds []feed, mysql store, err error) {
 
-	password := flag.String("password", "", "password for selected feed (optional)")
-	feedID := flag.String("feed", "", "ID of feed to fetch messages from")
-
-	flag.Parse()
-
-	if *feedID == "" {
-		panic("no feed given")
+	fileContent, err := ioutil.ReadFile(file)
+	if err != nil {
+		return
 	}
 
-	if *password != "" {
-		*password = fmt.Sprintf("feedPassword=%s",*password)
+	config := &struct {
+		Mysql store
+		Feeds []feed
+	}{}
+
+	err = json.Unmarshal(fileContent, config)
+	if err != nil {
+		return
 	}
+
+	feeds = config.Feeds
+	mysql = config.Mysql
+
+	return
+}
+
+var getURL = func(feedInstance feed) string {
 
 	u := url.URL{
 		Scheme: "https",
 		Host: "api.findmespot.com",
-		Path: fmt.Sprintf("spot-main-web/consumer/rest-api/2.0/public/feed/%s/message.json",*feedID),
-		RawQuery: *password,
+		Path: fmt.Sprintf("spot-main-web/consumer/rest-api/2.0/public/feed/%s/message.json",feedInstance.ID),
 	}
 
-	responseReader, err := http.Get(u.String())
+	if feedInstance.Password != "" {
+		u.RawQuery = fmt.Sprintf("feedPassword=%s",feedInstance.Password)
+	}
+
+	return u.String()
+}
+
+var doGetFeed = func(feedURL string) (*http.Response, error) {
+	return http.Get(feedURL)
+}
+
+var getMessages = func(feedURL string) (messages []message, err error) {
+
+	httpResponse, err := doGetFeed(feedURL)
 	if err != nil {
-		panic (err.Error())
+		return
 	}
 
-	defer responseReader.Body.Close()
-	rawResponse, err := ioutil.ReadAll(responseReader.Body)
+	defer httpResponse.Body.Close()
+	rawResponse, err := ioutil.ReadAll(httpResponse.Body)
 	if err != nil {
-		panic (err.Error())
+		return
 	}
 
+	// Determine number of messages
 	basicResponse := &struct{
 		Response struct {
 			FeedMessageResponse feedBasicResponse
@@ -78,7 +114,7 @@ func main(){
 
 	err = json.Unmarshal(rawResponse, &basicResponse)
 	if err != nil {
-		panic(err.Error())
+		return
 	}
 
 	// Check for errors within the response
@@ -86,18 +122,19 @@ func main(){
 
 		switch basicResponse.Response.Errors.Error.Code {
 		case "E-0195":
-			log.Println("No messages availible")
+			// This is not an error, just a "nothing to do".
 			return
 		default:
-			panic(fmt.Sprintf("%s (%s): %s",basicResponse.Response.Errors.Error.Text, 
-				basicResponse.Response.Errors.Error.Code, basicResponse.Response.Errors.Error.Description))
+			// Return an error
+			err = fmt.Errorf("%s (%s): %s",basicResponse.Response.Errors.Error.Text,
+				basicResponse.Response.Errors.Error.Code, basicResponse.Response.Errors.Error.Description)
+			return
 		}
 	}
 
 	log.Printf("%d messages found\n",basicResponse.Response.FeedMessageResponse.Count)
 
-	var messages []message
-
+	// Get messages
 	switch basicResponse.Response.FeedMessageResponse.Count {
 	case 1:
 		// Fetch single message
@@ -111,9 +148,10 @@ func main(){
 			}
 		}{}
 
-		err := json.Unmarshal(rawResponse, singleMessageResponse)
+		err = json.Unmarshal(rawResponse, singleMessageResponse)
 		if err !=nil {
-			panic("Error while decoding a single message")
+			err = fmt.Errorf("Error while decoding a single message: %s", err.Error())
+			return
 		}
 
 		messages = append(messages,singleMessageResponse.Response.FeedMessageResponse.Messages.Message)
@@ -130,12 +168,40 @@ func main(){
 			}
 		}{}
 
-		err := json.Unmarshal(rawResponse, multipleMessageResponse)
+		err = json.Unmarshal(rawResponse, multipleMessageResponse)
 		if err !=nil {
-			panic("Error while decoding multiple messages")
+			err = fmt.Errorf("Error while decoding multiple messages: %S", err.Error())
 		}
 
 		messages = multipleMessageResponse.Response.FeedMessageResponse.Messages.Message
+	}
+
+	return
+}
+
+func main(){
+
+	feeds, mysql, err := readConfig("config.json")
+	if err != nil {
+		panic(fmt.Sprintf("Error while reading config file: %s", err.Error()))
+	}
+
+	var messages []message
+
+	for _, feedInstance := range feeds {
+
+		feedURL := getURL(feedInstance)
+		fmt.Println(feedURL)
+		feedMessages, err := getMessages(feedURL)
+		if err != nil {
+			panic(fmt.Sprintf("Error while getting messages: %s", err.Error()))
+		}
+
+		messages = append(messages, feedMessages...)
+	}
+
+	if len(messages) == 0 {
+		log.Println("No messages")
 	}
 
 	for i, m := range messages {
