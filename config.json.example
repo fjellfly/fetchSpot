@@ -1,0 +1,15 @@
+{
+	"mysql": {
+        	"host": "HOST"
+		"port": 3306,
+		"user": "USER",
+		"name": "NAME OF DATABASE"
+		"prefix": "spot",
+		"password": "PASSWORT",
+		"tls": "skip-verify"
+	},
+	"feeds": [{ 
+		"password": "PASSWORD",
+		"id": "ID"
+	}]
+}
