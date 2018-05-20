@@ -1,6 +1,9 @@
 language: go
 go:
   - master
+before_install:
+  - go get github.com/mattn/goveralls
 script:
-  - go test -v ./...
+  - go test -v -coverprofile=fetchSpot.cp ./...
   - go vet ./...
+  - goveralls -coverprofile fetchSpot.cp -service travis-ci
