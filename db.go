@@ -14,9 +14,10 @@ var connect = func(dbConfig store) (db *sql.DB, err error) {
 	return
 }
 
-var getMessageKeys = func(db *sql.DB, unixTime int) (keys map[string]struct{}, err error) {
+// Get keys of all messenges not created before timeLimit
+var getMessageKeys = func(db *sql.DB, timeLimit int64) (keys map[string]struct{}, err error) {
 
-	rows, err := db.Query(fmt.Sprintf("SELECT id, messengerID FROM %s_messages", prefix))
+	rows, err := db.Query(fmt.Sprintf("SELECT id, messengerID FROM %s_messages WHERE unixTime >= ?", prefix), timeLimit)
 	if err != nil {
 		return
 	}

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"time"
 )
 
 type message struct {
@@ -42,7 +41,7 @@ func main(){
 		panic(fmt.Sprintf("Error while reading config file: %s", err.Error()))
 	}
 
-	// Fetch messages from spot
+	// Fetch messages of all feeds from spot
 	var messages []message
 	for _, feedInstance := range feeds {
 
@@ -61,30 +60,16 @@ func main(){
 		return
 	}
 
-	// Time of creation of oldest message
-	oldest := time.Now().Unix()
-	for _, m := range messages {
-		if m.UnixTime < oldest {
-			oldest = m.UnixTime
-		}
-	}
-
 	// Connect to db
 	db, err := connect(dbConfig)
 	if err != nil {
 		panic(err.Error())
 	}
 
-	// Get keys (messageID+messengeID) of younger messages from db
-	keys, err := getMessageKeys(db, 0)
-	if err != nil {
-		panic(err.Error())
-	}
-
 	// Select new messages
-	newMessages := selectMessages(keys, messages)
+	newMessages, err := selectMessages(db, messages)
 
-	// Push new messages to db
+	// Push messages to db
 	err = insertMessages(db, newMessages)
 	if err != nil {
 		panic(err.Error())
