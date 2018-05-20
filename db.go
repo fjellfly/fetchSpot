@@ -45,7 +45,7 @@ var getMessageKeys = func(db *sql.DB, timeLimit int64) (keys map[string]struct{}
 
 var insertMessages = func(db *sql.DB, messages []message) (err error) {
 
-	cmd, err := db.Prepare(fmt.Sprintf("INSERT INTO %s_messages SET id=?, messengerID=?, messengerName=?, unixTime=?, messageType=?, latitude=?, longitude=?, dateTime=?, batteryState=?, messageContent=?, altitude=?", prefix))
+	cmd, err := db.Prepare(fmt.Sprintf("INSERT INTO %s_messages SET id=?, messengerID=?, messengerName=?, unixTime=?, messageType=?, location=POINT(?,?), dateTime=?, batteryState=?, messageContent=?, altitude=?", prefix))
 	if err != nil {
 		return
 	}
@@ -53,7 +53,7 @@ var insertMessages = func(db *sql.DB, messages []message) (err error) {
 	defer cmd.Close()
 
 	for _, m := range messages {
-		_, err = cmd.Exec(m.ID, m.MessengerID, m.MessengerName, m.UnixTime, m.MessageType, m.Latitude, m.Longitude, m.DateTime, m.BatteryState, m.MessageContent, m.Altitude)
+		_, err = cmd.Exec(m.ID, m.MessengerID, m.MessengerName, m.UnixTime, m.MessageType, m.Longitude, m.Latitude, m.DateTime, m.BatteryState, m.MessageContent, m.Altitude)
 		if err != nil {
 			return
 		}
