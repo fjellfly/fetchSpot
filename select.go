@@ -42,3 +42,34 @@ var selectMessages = func(db *sql.DB, messages []message) (newMessages []message
 
 	return
 }
+
+var pushNewMessenger = func(db *sql.DB, messages []message) (err error) {
+
+	// Fetch already known messengers
+	knownMessenger, err := getMessenger(db)
+	if err != nil {
+		return
+	}
+
+	messenger := make(map[string]string)
+
+	for _, m := range messages {
+		if _, ok := messenger[m.MessengerID]; ok {
+			continue
+		}
+
+		if _, ok := knownMessenger[m.MessengerID]; ok {
+			continue
+		}
+
+		messenger[m.MessengerID] = m.MessengerName
+	}
+
+	if len(messenger) == 0 {
+		return
+	}
+
+	err = insertMessenger(db, messenger)
+
+	return
+}

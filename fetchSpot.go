@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 )
 
 type message struct {
@@ -43,7 +44,12 @@ func main(){
 
 	// Fetch messages of all feeds from spot
 	var messages []message
-	for _, feedInstance := range feeds {
+	for i, feedInstance := range feeds {
+
+		// Wait between multiple requests
+		if i > 0 {
+			time.Sleep(3*time.Second)
+		}
 
 		feedURL := getURL(feedInstance)
 
@@ -68,6 +74,12 @@ func main(){
 
 	// Select new messages
 	newMessages, err := selectMessages(db, messages)
+
+	// Select messengerNames
+	err = pushNewMessenger(db, newMessages)
+	if err != nil {
+		panic(err.Error())
+	}
 
 	// Push messages to db
 	err = insertMessages(db, newMessages)
