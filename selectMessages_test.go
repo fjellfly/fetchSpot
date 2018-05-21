@@ -134,7 +134,7 @@ func TestSelectMessages(t *testing.T) {
 			if len(tc.keysOfNewMessages) != 0 {
 				var keys []string
 
-				for key, _ := range tc.keysOfNewMessages {
+				for key := range tc.keysOfNewMessages {
 					keys = append(keys, key)
 				}
 

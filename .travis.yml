@@ -3,7 +3,9 @@ go:
   - master
 before_install:
   - go get github.com/mattn/goveralls
+  - go get -u golang.org/x/lint/golint
 script:
   - go test -v -coverprofile=fetchSpot.cp ./...
   - go vet ./...
+  - golint -set_exit_status $(go list ./...)
   - goveralls -coverprofile fetchSpot.cp -service travis-ci
